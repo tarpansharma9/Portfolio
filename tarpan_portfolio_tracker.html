@@ -1,0 +1,534 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tarpan — Portfolio Command</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --surface: #12121a;
+    --surface2: #1a1a26;
+    --border: rgba(255,255,255,0.08);
+    --border2: rgba(255,255,255,0.14);
+    --text: #f0eff6;
+    --muted: #7a7990;
+    --accent: #7b6fff;
+    --accent2: #a78bff;
+    --green: #22d68a;
+    --red: #ff5e6a;
+    --amber: #f5a623;
+    --blue: #4da6ff;
+    --font-head: 'Syne', sans-serif;
+    --font-mono: 'DM Mono', monospace;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: var(--font-head); min-height: 100vh; }
+
+  .noise {
+    position: fixed; inset: 0; pointer-events: none; z-index: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+  }
+  .glow { position: fixed; top: -200px; left: 50%; transform: translateX(-50%); width: 600px; height: 400px; background: radial-gradient(ellipse, rgba(123,111,255,0.12) 0%, transparent 70%); pointer-events: none; z-index: 0; }
+
+  .app { position: relative; z-index: 1; max-width: 1100px; margin: 0 auto; padding: 32px 20px 60px; }
+
+  header { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 40px; flex-wrap: wrap; gap: 16px; }
+  .logo { font-size: 28px; font-weight: 800; letter-spacing: -1px; }
+  .logo span { color: var(--accent2); }
+  .header-right { display: flex; align-items: center; gap: 12px; }
+  .last-updated { font-family: var(--font-mono); font-size: 11px; color: var(--muted); }
+  .refresh-btn { background: var(--surface2); border: 1px solid var(--border2); color: var(--text); font-family: var(--font-head); font-size: 12px; font-weight: 600; padding: 8px 16px; border-radius: 8px; cursor: pointer; transition: all 0.2s; letter-spacing: 0.5px; }
+  .refresh-btn:hover { background: var(--accent); border-color: var(--accent); }
+  .refresh-btn.loading { opacity: 0.6; pointer-events: none; }
+
+  .summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; margin-bottom: 32px; }
+  .summary-card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 20px; position: relative; overflow: hidden; }
+  .summary-card::before { content: ''; position: absolute; inset: 0; background: linear-gradient(135deg, rgba(123,111,255,0.06) 0%, transparent 60%); }
+  .summary-card .s-label { font-family: var(--font-mono); font-size: 10px; color: var(--muted); letter-spacing: 1px; text-transform: uppercase; margin-bottom: 8px; }
+  .summary-card .s-val { font-size: 26px; font-weight: 700; letter-spacing: -1px; }
+  .summary-card .s-sub { font-family: var(--font-mono); font-size: 11px; margin-top: 4px; }
+  .pos { color: var(--green); }
+  .neg { color: var(--red); }
+  .neu { color: var(--muted); }
+
+  .tabs { display: flex; gap: 4px; margin-bottom: 24px; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 4px; width: fit-content; }
+  .tab { font-size: 13px; font-weight: 600; padding: 8px 20px; border-radius: 8px; cursor: pointer; transition: all 0.2s; color: var(--muted); border: none; background: none; font-family: var(--font-head); letter-spacing: 0.3px; }
+  .tab.active { background: var(--accent); color: white; }
+  .tab:hover:not(.active) { color: var(--text); }
+
+  .panel { display: none; }
+  .panel.active { display: block; }
+
+  .section-title { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 1.5px; color: var(--muted); margin-bottom: 12px; }
+
+  table { width: 100%; border-collapse: collapse; }
+  .holdings-table { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; overflow: hidden; margin-bottom: 24px; }
+  th { font-family: var(--font-mono); font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.8px; padding: 14px 16px; text-align: left; border-bottom: 1px solid var(--border); background: rgba(255,255,255,0.02); }
+  th:not(:first-child) { text-align: right; }
+  td { padding: 14px 16px; font-size: 13px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+  td:not(:first-child) { text-align: right; font-family: var(--font-mono); }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: rgba(255,255,255,0.02); }
+
+  .ticker-cell { display: flex; align-items: center; gap: 10px; }
+  .ticker-icon { width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; flex-shrink: 0; letter-spacing: 0.5px; }
+  .ticker-name { font-weight: 600; font-size: 13px; }
+  .ticker-full { font-size: 11px; color: var(--muted); font-family: var(--font-mono); }
+
+  .signal { display: inline-flex; align-items: center; gap: 4px; font-size: 10px; font-weight: 600; padding: 3px 10px; border-radius: 20px; letter-spacing: 0.5px; }
+  .sig-buy { background: rgba(34,214,138,0.15); color: var(--green); }
+  .sig-hold { background: rgba(77,166,255,0.15); color: var(--blue); }
+  .sig-exit { background: rgba(255,94,106,0.15); color: var(--red); }
+  .sig-watch { background: rgba(245,166,35,0.15); color: var(--amber); }
+
+  .acct-badge { font-size: 10px; font-weight: 600; padding: 2px 8px; border-radius: 20px; letter-spacing: 0.5px; }
+  .acct-tfsa { background: rgba(123,111,255,0.2); color: var(--accent2); }
+  .acct-rrsp { background: rgba(77,166,255,0.2); color: var(--blue); }
+  .acct-crypto { background: rgba(245,166,35,0.2); color: var(--amber); }
+  .acct-dcpp { background: rgba(34,214,138,0.2); color: var(--green); }
+
+  .loading-row td { color: var(--muted); font-family: var(--font-mono); font-size: 12px; text-align: center !important; padding: 24px; }
+
+  .add-form { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 24px; margin-bottom: 24px; }
+  .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin-bottom: 16px; }
+  .form-group label { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); display: block; margin-bottom: 6px; }
+  .form-group input, .form-group select { width: 100%; background: var(--bg); border: 1px solid var(--border2); color: var(--text); font-family: var(--font-mono); font-size: 13px; padding: 10px 12px; border-radius: 8px; outline: none; transition: border-color 0.2s; }
+  .form-group input:focus, .form-group select:focus { border-color: var(--accent); }
+  .form-group select option { background: var(--bg); }
+  .btn-add { background: var(--accent); border: none; color: white; font-family: var(--font-head); font-size: 13px; font-weight: 700; padding: 10px 24px; border-radius: 8px; cursor: pointer; transition: all 0.2s; letter-spacing: 0.5px; }
+  .btn-add:hover { background: var(--accent2); }
+  .btn-del { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 16px; padding: 4px; transition: color 0.2s; }
+  .btn-del:hover { color: var(--red); }
+
+  .div-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 24px; }
+  .div-card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 20px; }
+  .div-card .d-ticker { font-size: 18px; font-weight: 800; margin-bottom: 4px; }
+  .div-card .d-label { font-family: var(--font-mono); font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.8px; }
+  .div-card .d-val { font-size: 22px; font-weight: 700; color: var(--green); margin: 8px 0 4px; }
+
+  .cheatsheet { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 28px; }
+  .cs-item { display: flex; gap: 16px; padding: 14px 0; border-bottom: 1px solid var(--border); }
+  .cs-item:last-child { border-bottom: none; }
+  .cs-num { width: 28px; height: 28px; border-radius: 8px; background: var(--accent); display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; flex-shrink: 0; }
+  .cs-text strong { font-size: 14px; font-weight: 700; display: block; margin-bottom: 3px; }
+  .cs-text p { font-family: var(--font-mono); font-size: 12px; color: var(--muted); line-height: 1.6; }
+
+  .price-loading { color: var(--muted); font-family: var(--font-mono); font-size: 12px; }
+  .pulse { animation: pulse 1.5s ease-in-out infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+  .api-note { font-family: var(--font-mono); font-size: 11px; color: var(--muted); margin-bottom: 20px; padding: 12px 16px; background: rgba(255,255,255,0.03); border-radius: 8px; border-left: 3px solid var(--accent); }
+</style>
+</head>
+<body>
+<div class="noise"></div>
+<div class="glow"></div>
+<div class="app">
+
+  <header>
+    <div>
+      <div class="logo">Tarpan <span>Portfolio</span></div>
+      <div style="font-family:var(--font-mono);font-size:11px;color:var(--muted);margin-top:4px;">Command Centre — All accounts</div>
+    </div>
+    <div class="header-right">
+      <div class="last-updated" id="last-updated">Not refreshed yet</div>
+      <button class="refresh-btn" id="refresh-btn" onclick="fetchPrices()">↻ Refresh Prices</button>
+    </div>
+  </header>
+
+  <div class="summary-grid">
+    <div class="summary-card"><div class="s-label">Total Portfolio</div><div class="s-val" id="s-total">$11,782</div><div class="s-sub neu">All accounts</div></div>
+    <div class="summary-card"><div class="s-label">TFSA Value</div><div class="s-val" id="s-tfsa">$8,873</div><div class="s-sub" style="color:var(--accent2);">Wealthsimple</div></div>
+    <div class="summary-card"><div class="s-label">DCPP (Sun Life)</div><div class="s-val" id="s-dcpp">$278</div><div class="s-sub pos">+$277/pay incoming</div></div>
+    <div class="summary-card"><div class="s-label">Day Change</div><div class="s-val" id="s-daychange">—</div><div class="s-sub" id="s-daychange-sub" class="neu">Refresh to update</div></div>
+  </div>
+
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab('holdings')">Holdings</button>
+    <button class="tab" onclick="switchTab('dividends')">Dividends</button>
+    <button class="tab" onclick="switchTab('watchlist')">Watchlist</button>
+    <button class="tab" onclick="switchTab('guide')">How to use</button>
+  </div>
+
+  <!-- HOLDINGS PANEL -->
+  <div class="panel active" id="panel-holdings">
+    <div class="api-note">⚡ Prices fetched via Yahoo Finance proxy. Click "Refresh Prices" to update. Not real-time — updates on demand.</div>
+
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+      <div class="section-title">Your positions</div>
+      <button class="btn-add" onclick="toggleAddForm()" style="font-size:12px;padding:8px 16px;">+ Add position</button>
+    </div>
+
+    <div class="add-form" id="add-form" style="display:none;">
+      <div class="form-grid">
+        <div class="form-group"><label>Ticker</label><input id="f-ticker" placeholder="e.g. NVDA" style="text-transform:uppercase"></div>
+        <div class="form-group"><label>Name</label><input id="f-name" placeholder="e.g. Nvidia Corp"></div>
+        <div class="form-group"><label>Shares</label><input id="f-shares" type="number" placeholder="0.00" step="0.001"></div>
+        <div class="form-group"><label>Avg cost ($)</label><input id="f-cost" type="number" placeholder="0.00" step="0.01"></div>
+        <div class="form-group"><label>Account</label>
+          <select id="f-acct">
+            <option value="TFSA">TFSA</option>
+            <option value="RRSP">RRSP</option>
+            <option value="Crypto">Crypto</option>
+            <option value="Non-reg">Non-registered</option>
+          </select>
+        </div>
+        <div class="form-group"><label>Signal</label>
+          <select id="f-signal">
+            <option value="BUY">BUY</option>
+            <option value="HOLD">HOLD</option>
+            <option value="WATCH">WATCH</option>
+            <option value="EXIT">EXIT</option>
+          </select>
+        </div>
+      </div>
+      <button class="btn-add" onclick="addHolding()">Add to portfolio</button>
+    </div>
+
+    <div class="holdings-table">
+      <table>
+        <thead>
+          <tr>
+            <th>Asset</th>
+            <th>Account</th>
+            <th>Shares</th>
+            <th>Avg cost</th>
+            <th>Price</th>
+            <th>Day %</th>
+            <th>Total value</th>
+            <th>All-time</th>
+            <th>Signal</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="holdings-body">
+          <tr><td colspan="10" style="text-align:center;color:var(--muted);padding:24px;font-family:var(--font-mono);font-size:12px;">Loading positions...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- DIVIDENDS PANEL -->
+  <div class="panel" id="panel-dividends">
+    <div class="section-title" style="margin-bottom:20px;">Dividend-paying positions</div>
+    <div class="div-grid" id="div-grid"></div>
+    <div class="holdings-table">
+      <table>
+        <thead><tr><th>Stock</th><th>Account</th><th>Shares</th><th>Est. Annual Yield</th><th>Est. Annual Income</th><th>Pay frequency</th></tr></thead>
+        <tbody id="div-body"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- WATCHLIST PANEL -->
+  <div class="panel" id="panel-watchlist">
+    <div class="section-title" style="margin-bottom:12px;">Recommended to buy — not yet owned</div>
+    <div class="holdings-table">
+      <table>
+        <thead><tr><th>ETF / Stock</th><th>Price</th><th>Day %</th><th>Why buy</th><th>Best account</th><th>MER / Yield</th></tr></thead>
+        <tbody id="watch-body"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- GUIDE PANEL -->
+  <div class="panel" id="panel-guide">
+    <div class="section-title" style="margin-bottom:16px;">How to use this tracker</div>
+    <div class="cheatsheet">
+      <div class="cs-item"><div class="cs-num">1</div><div class="cs-text"><strong>Refresh prices</strong><p>Click "↻ Refresh Prices" top right anytime. Pulls latest market price from Yahoo Finance. Works for stocks, ETFs, and crypto tickers. Not live — snapshot on demand.</p></div></div>
+      <div class="cs-item"><div class="cs-num">2</div><div class="cs-text"><strong>Add a new position</strong><p>Click "+ Add position" → enter ticker, name, number of shares, your average cost, account (TFSA/RRSP/Crypto), and signal. Hit Add. It saves in your browser automatically.</p></div></div>
+      <div class="cs-item"><div class="cs-num">3</div><div class="cs-text"><strong>Reading the signals</strong><p>BUY = keep accumulating regularly. HOLD = don't sell, don't rush to buy more. WATCH = review it, leaning toward exit. EXIT = sell and redeploy into better positions.</p></div></div>
+      <div class="cs-item"><div class="cs-num">4</div><div class="cs-text"><strong>Day % column</strong><p>Shows today's price change vs yesterday's close. Green = up today, Red = down. This is how you'd catch NVDA being up 4.5% or down 6% — just hit refresh.</p></div></div>
+      <div class="cs-item"><div class="cs-num">5</div><div class="cs-text"><strong>All-time return</strong><p>Calculated from your avg cost vs current price. Green = profit, Red = loss. This is your real return, not shown in Wealthsimple's confusing way.</p></div></div>
+      <div class="cs-item"><div class="cs-num">6</div><div class="cs-text"><strong>Dividends tab</strong><p>Shows all your dividend-paying positions with estimated annual income. BMO, CNQ, SU, VFV, VDY all show here. Great for tracking passive income growth.</p></div></div>
+      <div class="cs-item"><div class="cs-num">7</div><div class="cs-text"><strong>Watchlist tab</strong><p>Shows recommended ETFs/stocks you don't own yet (XEQT, VDY, XIU etc.) with live prices so you can decide when to buy. Update this as your strategy evolves.</p></div></div>
+      <div class="cs-item"><div class="cs-num">8</div><div class="cs-text"><strong>Data saves locally</strong><p>Your portfolio data saves in your browser (localStorage). It persists between sessions on the same device/browser. If you clear browser data it resets to defaults.</p></div></div>
+      <div class="cs-item"><div class="cs-num">9</div><div class="cs-text"><strong>Crypto tickers</strong><p>For crypto use: ETH-USD, SOL-USD, BTC-USD format when adding. Regular stocks use normal tickers: NVDA, AAPL, BMO.TO for TSX stocks.</p></div></div>
+      <div class="cs-item"><div class="cs-num">10</div><div class="cs-text"><strong>TSX stocks</strong><p>Canadian stocks need .TO suffix for prices: BMO.TO, SU.TO, CNQ.TO, VFV.TO, VDY.TO. US stocks use plain ticker: NVDA, AAPL, PLTR.</p></div></div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const DEFAULT_HOLDINGS = [
+  { id:1, ticker:'NVDA', name:'Nvidia Corp', shares:7.717, avgCost:32.28, acct:'TFSA', signal:'HOLD', divYield:0.003, divFreq:'Quarterly' },
+  { id:2, ticker:'PLTR', name:'Palantir Technologies', shares:12, avgCost:11.75, acct:'TFSA', signal:'HOLD', divYield:0, divFreq:'-' },
+  { id:3, ticker:'AAPL', name:'Apple Inc', shares:0.8327, avgCost:152.00, acct:'TFSA', signal:'HOLD', divYield:0.005, divFreq:'Quarterly' },
+  { id:4, ticker:'BMO.TO', name:'Bank of Montreal', shares:3.7788, avgCost:115.00, acct:'TFSA', signal:'HOLD', divYield:0.048, divFreq:'Quarterly' },
+  { id:5, ticker:'SU.TO', name:'Suncor Energy', shares:10.1817, avgCost:29.00, acct:'TFSA', signal:'HOLD', divYield:0.042, divFreq:'Quarterly' },
+  { id:6, ticker:'VFV.TO', name:'Vanguard S&P 500 ETF', shares:4, avgCost:105.00, acct:'TFSA', signal:'BUY', divYield:0.013, divFreq:'Quarterly' },
+  { id:7, ticker:'AC.TO', name:'Air Canada', shares:11, avgCost:22.50, acct:'TFSA', signal:'WATCH', divYield:0, divFreq:'-' },
+  { id:8, ticker:'BABA', name:'Alibaba Group', shares:0.585, avgCost:131.80, acct:'TFSA', signal:'WATCH', divYield:0, divFreq:'-' },
+  { id:9, ticker:'GME', name:'GameStop', shares:4, avgCost:27.50, acct:'TFSA', signal:'EXIT', divYield:0, divFreq:'-' },
+  { id:10, ticker:'SNAP', name:'Snap Inc', shares:5, avgCost:58.00, acct:'TFSA', signal:'EXIT', divYield:0, divFreq:'-' },
+  { id:11, ticker:'MARA', name:'Marathon Digital', shares:7, avgCost:35.00, acct:'TFSA', signal:'EXIT', divYield:0, divFreq:'-' },
+  { id:12, ticker:'NIO', name:'NIO Inc', shares:9, avgCost:25.80, acct:'TFSA', signal:'EXIT', divYield:0, divFreq:'-' },
+  { id:13, ticker:'CNQ.TO', name:'Canadian Natural Resources', shares:4, avgCost:47.20, acct:'RRSP', signal:'HOLD', divYield:0.045, divFreq:'Quarterly' },
+  { id:14, ticker:'SU.TO', name:'Suncor Energy', shares:0.4149, avgCost:55.00, acct:'RRSP', signal:'HOLD', divYield:0.042, divFreq:'Quarterly' },
+  { id:15, ticker:'BTE.TO', name:'Baytex Energy', shares:4, avgCost:5.64, acct:'RRSP', signal:'HOLD', divYield:0.024, divFreq:'Quarterly' },
+  { id:16, ticker:'ETH-USD', name:'Ethereum', shares:0.642279, avgCost:2065.00, acct:'Crypto', signal:'HOLD', divYield:0, divFreq:'-' },
+  { id:17, ticker:'SOL-USD', name:'Solana', shares:1.752283, avgCost:113.00, acct:'Crypto', signal:'HOLD', divYield:0, divFreq:'-' },
+];
+
+const WATCHLIST = [
+  { ticker:'XEQT.TO', name:'iShares Core Equity ETF', why:'Best all-in-one global ETF — 8,000+ stocks, auto-rebalanced', acct:'TFSA', mer:'MER 0.20%' },
+  { ticker:'VDY.TO', name:'Vanguard Canadian High Div', why:'Best Canadian dividend ETF — monthly pay, 3.55% yield', acct:'TFSA', mer:'Yield 3.55%' },
+  { ticker:'XEI.TO', name:'iShares High Dividend', why:'Highest passive yield ETF — broader sector exposure', acct:'TFSA', mer:'Yield 3.88%' },
+  { ticker:'XIU.TO', name:'iShares S&P/TSX 60', why:'Top 60 Canadian blue chips — oldest ETF in world', acct:'TFSA', mer:'Yield 2.8%' },
+];
+
+const DIVIDENDS_META = {
+  'BMO.TO': { yield: 0.048, freq: 'Quarterly' },
+  'SU.TO': { yield: 0.042, freq: 'Quarterly' },
+  'CNQ.TO': { yield: 0.045, freq: 'Quarterly' },
+  'BTE.TO': { yield: 0.024, freq: 'Quarterly' },
+  'VFV.TO': { yield: 0.013, freq: 'Quarterly' },
+  'AAPL': { yield: 0.005, freq: 'Quarterly' },
+  'NVDA': { yield: 0.003, freq: 'Quarterly' },
+};
+
+let holdings = [];
+let prices = {};
+let nextId = 100;
+
+function loadData() {
+  const saved = localStorage.getItem('tarpan_holdings');
+  if (saved) {
+    try { holdings = JSON.parse(saved); nextId = Math.max(...holdings.map(h=>h.id)) + 1; }
+    catch(e) { holdings = [...DEFAULT_HOLDINGS]; }
+  } else {
+    holdings = [...DEFAULT_HOLDINGS];
+  }
+}
+
+function saveData() {
+  localStorage.setItem('tarpan_holdings', JSON.stringify(holdings));
+}
+
+function acctClass(a) {
+  if(a==='TFSA') return 'acct-tfsa';
+  if(a==='RRSP') return 'acct-rrsp';
+  if(a==='Crypto') return 'acct-crypto';
+  return 'acct-dcpp';
+}
+
+function signalClass(s) {
+  if(s==='BUY') return 'sig-buy';
+  if(s==='HOLD') return 'sig-hold';
+  if(s==='EXIT') return 'sig-exit';
+  return 'sig-watch';
+}
+
+function tickerColor(ticker) {
+  const colors = ['#7b6fff','#22d68a','#4da6ff','#f5a623','#ff5e6a','#a78bff','#5dcaa5','#f59e0b'];
+  let h = 0; for(let c of ticker) h = (h*31 + c.charCodeAt(0)) % colors.length;
+  return colors[h];
+}
+
+function fmt(n, dec=2) {
+  if(n===null||n===undefined||isNaN(n)) return '—';
+  return '$' + Math.abs(n).toLocaleString('en-CA', {minimumFractionDigits:dec, maximumFractionDigits:dec});
+}
+
+function fmtPct(n) {
+  if(n===null||n===undefined||isNaN(n)) return '—';
+  const sign = n >= 0 ? '+' : '';
+  return sign + n.toFixed(2) + '%';
+}
+
+async function fetchPrices() {
+  const btn = document.getElementById('refresh-btn');
+  btn.textContent = '↻ Fetching...';
+  btn.classList.add('loading');
+
+  const allTickers = [...new Set([
+    ...holdings.map(h => h.ticker),
+    ...WATCHLIST.map(w => w.ticker)
+  ])];
+
+  const results = await Promise.allSettled(allTickers.map(t => fetchOne(t)));
+  results.forEach((r, i) => {
+    if (r.status === 'fulfilled' && r.value) {
+      prices[allTickers[i]] = r.value;
+    }
+  });
+
+  const now = new Date();
+  document.getElementById('last-updated').textContent = 'Updated ' + now.toLocaleTimeString('en-CA', {hour:'2-digit',minute:'2-digit'});
+  btn.textContent = '↻ Refresh Prices';
+  btn.classList.remove('loading');
+
+  updateSummary();
+  renderHoldings();
+  renderDividends();
+  renderWatchlist();
+}
+
+async function fetchOne(ticker) {
+  try {
+    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ticker)}?interval=1d&range=2d`;
+    const res = await fetch(url, { signal: AbortSignal.timeout(6000) });
+    if (!res.ok) return null;
+    const data = await res.json();
+    const meta = data?.chart?.result?.[0]?.meta;
+    if (!meta) return null;
+    const price = meta.regularMarketPrice || meta.previousClose;
+    const prev = meta.previousClose || meta.chartPreviousClose;
+    const dayChange = prev ? ((price - prev) / prev * 100) : null;
+    return { price, prev, dayChange, currency: meta.currency || 'USD' };
+  } catch(e) { return null; }
+}
+
+function updateSummary() {
+  let totalVal = 0, dayDelta = 0, hasDay = false;
+  holdings.forEach(h => {
+    const p = prices[h.ticker];
+    const val = p ? h.shares * p.price : 0;
+    totalVal += val;
+    if (p && p.dayChange !== null) {
+      dayDelta += val * (p.dayChange / 100);
+      hasDay = true;
+    }
+  });
+  document.getElementById('s-total').textContent = fmt(totalVal, 0);
+  const tfsa = holdings.filter(h=>h.acct==='TFSA').reduce((s,h)=>{
+    const p=prices[h.ticker]; return s+(p?h.shares*p.price:0);
+  }, 0);
+  document.getElementById('s-tfsa').textContent = fmt(tfsa, 0);
+  if (hasDay) {
+    const el = document.getElementById('s-daychange');
+    el.textContent = (dayDelta>=0?'+':'-') + fmt(Math.abs(dayDelta), 0);
+    el.className = 's-val ' + (dayDelta>=0?'pos':'neg');
+    document.getElementById('s-daychange-sub').textContent = dayDelta>=0?'Today\'s gain':'Today\'s loss';
+  }
+}
+
+function renderHoldings() {
+  const tbody = document.getElementById('holdings-body');
+  if (!holdings.length) { tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;color:var(--muted);padding:24px;font-family:var(--font-mono);font-size:12px;">No positions. Add one above.</td></tr>'; return; }
+  tbody.innerHTML = holdings.map(h => {
+    const p = prices[h.ticker];
+    const price = p ? p.price : null;
+    const dayPct = p ? p.dayChange : null;
+    const totalVal = price ? h.shares * price : null;
+    const costBasis = h.shares * h.avgCost;
+    const allTime = totalVal ? ((totalVal - costBasis) / costBasis * 100) : null;
+    const color = tickerColor(h.ticker);
+    const initials = h.ticker.replace(/[^A-Z]/g,'').slice(0,3);
+    return `<tr>
+      <td><div class="ticker-cell">
+        <div class="ticker-icon" style="background:${color}22;color:${color}">${initials}</div>
+        <div><div class="ticker-name">${h.ticker}</div><div class="ticker-full">${h.name}</div></div>
+      </div></td>
+      <td><span class="acct-badge ${acctClass(h.acct)}">${h.acct}</span></td>
+      <td>${h.shares.toFixed(4)}</td>
+      <td>${fmt(h.avgCost)}</td>
+      <td class="${price?'':'price-loading pulse'}">${price ? fmt(price) : 'fetching...'}</td>
+      <td class="${dayPct===null?'neu':dayPct>=0?'pos':'neg'}">${dayPct===null?'—':fmtPct(dayPct)}</td>
+      <td>${totalVal ? fmt(totalVal) : '—'}</td>
+      <td class="${allTime===null?'neu':allTime>=0?'pos':'neg'}">${allTime===null?'—':fmtPct(allTime)}</td>
+      <td><span class="signal ${signalClass(h.signal)}">${h.signal}</span></td>
+      <td><button class="btn-del" onclick="deleteHolding(${h.id})" title="Remove">×</button></td>
+    </tr>`;
+  }).join('');
+}
+
+function renderDividends() {
+  const divHoldings = holdings.filter(h => h.divYield > 0);
+  const grid = document.getElementById('div-grid');
+  let totalAnnual = 0;
+  divHoldings.forEach(h => {
+    const p = prices[h.ticker];
+    const val = p ? h.shares * p.price : h.shares * h.avgCost;
+    totalAnnual += val * h.divYield;
+  });
+
+  grid.innerHTML = `
+    <div class="div-card"><div class="d-label">Est. annual dividend income</div><div class="d-val">${fmt(totalAnnual)}</div><div class="d-label">From ${divHoldings.length} positions</div></div>
+    <div class="div-card"><div class="d-label">Est. monthly income</div><div class="d-val">${fmt(totalAnnual/12)}</div><div class="d-label">Passive income</div></div>
+    <div class="div-card"><div class="d-label">Projected in 5 years</div><div class="d-val">${fmt(totalAnnual*1.25)}</div><div class="d-label">At 5% dividend growth</div></div>
+  `;
+
+  const tbody = document.getElementById('div-body');
+  tbody.innerHTML = divHoldings.map(h => {
+    const p = prices[h.ticker];
+    const val = p ? h.shares * p.price : h.shares * h.avgCost;
+    const annual = val * h.divYield;
+    return `<tr>
+      <td><div class="ticker-cell"><div class="ticker-icon" style="background:${tickerColor(h.ticker)}22;color:${tickerColor(h.ticker)}">${h.ticker.replace(/[^A-Z]/g,'').slice(0,3)}</div><div><div class="ticker-name">${h.ticker}</div><div class="ticker-full">${h.name}</div></div></div></td>
+      <td><span class="acct-badge ${acctClass(h.acct)}">${h.acct}</span></td>
+      <td>${h.shares.toFixed(4)}</td>
+      <td class="pos">${(h.divYield*100).toFixed(2)}%</td>
+      <td class="pos">${fmt(annual)}</td>
+      <td>${h.divFreq}</td>
+    </tr>`;
+  }).join('') || '<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:20px;font-family:var(--font-mono);font-size:12px;">No dividend positions found.</td></tr>';
+}
+
+function renderWatchlist() {
+  const tbody = document.getElementById('watch-body');
+  tbody.innerHTML = WATCHLIST.map(w => {
+    const p = prices[w.ticker];
+    const price = p ? p.price : null;
+    const dayPct = p ? p.dayChange : null;
+    return `<tr>
+      <td><div class="ticker-cell"><div class="ticker-icon" style="background:${tickerColor(w.ticker)}22;color:${tickerColor(w.ticker)}">${w.ticker.replace(/[^A-Z.]/g,'').slice(0,4)}</div><div><div class="ticker-name">${w.ticker}</div><div class="ticker-full">${w.name}</div></div></div></td>
+      <td class="${price?'':'price-loading pulse'}">${price ? fmt(price) : 'fetching...'}</td>
+      <td class="${dayPct===null?'neu':dayPct>=0?'pos':'neg'}">${dayPct===null?'—':fmtPct(dayPct)}</td>
+      <td style="font-size:12px;color:var(--muted);max-width:200px;">${w.why}</td>
+      <td><span class="acct-badge ${acctClass(w.acct)}">${w.acct}</span></td>
+      <td style="font-family:var(--font-mono);font-size:11px;color:var(--muted);">${w.mer}</td>
+    </tr>`;
+  }).join('');
+}
+
+function toggleAddForm() {
+  const f = document.getElementById('add-form');
+  f.style.display = f.style.display === 'none' ? 'block' : 'none';
+}
+
+function addHolding() {
+  const ticker = document.getElementById('f-ticker').value.trim().toUpperCase();
+  const name = document.getElementById('f-name').value.trim();
+  const shares = parseFloat(document.getElementById('f-shares').value);
+  const avgCost = parseFloat(document.getElementById('f-cost').value);
+  const acct = document.getElementById('f-acct').value;
+  const signal = document.getElementById('f-signal').value;
+  if (!ticker || !name || isNaN(shares) || isNaN(avgCost)) { alert('Please fill all fields.'); return; }
+  const meta = DIVIDENDS_META[ticker] || { yield: 0, freq: '-' };
+  holdings.push({ id: nextId++, ticker, name, shares, avgCost, acct, signal, divYield: meta.yield, divFreq: meta.freq });
+  saveData();
+  document.getElementById('add-form').style.display = 'none';
+  ['f-ticker','f-name','f-shares','f-cost'].forEach(id => document.getElementById(id).value = '');
+  renderHoldings();
+  renderDividends();
+  fetchPrices();
+}
+
+function deleteHolding(id) {
+  if (!confirm('Remove this position?')) return;
+  holdings = holdings.filter(h => h.id !== id);
+  saveData();
+  renderHoldings();
+  renderDividends();
+  updateSummary();
+}
+
+function switchTab(tab) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  event.target.classList.add('active');
+  document.getElementById('panel-' + tab).classList.add('active');
+}
+
+loadData();
+renderHoldings();
+renderDividends();
+renderWatchlist();
+fetchPrices();
+</script>
+</body>
+</html>
